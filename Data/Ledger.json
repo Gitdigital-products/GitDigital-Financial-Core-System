@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "date": "2026-02-18",
+      "type": "Principal Issued",
+      "amount": 16502,
+      "reviewer": "System"
+    },
+    {
+      "date": "2026-02-18",
+      "type": "Forgiveness Applied",
+      "amount": -500,
+      "reviewer": "R. Kindler"
+    }
+  ]
+}
