@@ -70,6 +70,10 @@ Core Badge Categories
 
 Badges are not decorative — they are functional authority gates.
 
+
+### PDF Export Layer
+All courthouse‑theme documents now include a PDF export hook via `pdf-export.js`.  
+This enables future integration with a real HTML → PDF engine.
 ---
 
 📄 Included Pages (Batch 1, 2, and 3)
