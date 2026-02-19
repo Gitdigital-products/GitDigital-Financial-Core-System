@@ -1,3 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GitDigital Financial Core System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      background: #0f1115;
+      color: #e6e6e6;
+      font-family: Arial, sans-serif;
+    }
+    header {
+      padding: 24px 32px;
+      border-bottom: 1px solid #1f2228;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    header h1 {
+      margin: 0;
+      color: #2ee6c8;
+      font-size: 26px;
+    }
+    header span {
+      font-size: 13px;
+      color: #9ca0a8;
+    }
+    main {
+      padding: 24px 32px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h2 {
+      margin-top: 32px;
+      margin-bottom: 12px;
+      font-size: 18px;
+      color: #e6e6e6;
+    }
+    p {
+      margin-top: 0;
+      margin-bottom: 16px;
+      color: #bfc3c9;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: #15171c;
+      border-radius: 8px;
+      padding: 16px 18px;
+      border: 1px solid #1f2228;
+    }
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      color: #ffffff;
+    }
+    .card p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: #a7abb4;
+    }
+    .card a {
+      display: inline-block;
+      margin-right: 10px;
+      margin-top: 4px;
+      font-size: 13px;
+      color: #2ee6c8;
+      text-decoration: none;
+    }
+    .card a:hover {
+      text-decoration: underline;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid #2ee6c8;
+      color: #2ee6c8;
+      margin-bottom: 8px;
+    }
+    footer {
+      padding: 16px 32px 24px;
+      border-top: 1px solid #1f2228;
+      font-size: 12px;
+      color: #7b808a;
+      text-align: center;
+    }
+    @media (max-width: 640px) {
+      header, main, footer {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>GitDigital Financial Core System</h1>
+      <span>Operational console • Legal packet • Governance automation</span>
+    </div>
+    <span>GitDigital LLC</span>
+  </header>
+
+  <main>
+    <section>
+      <h2>Overview</h2>
+      <p>
+        This index connects all modules of the GitDigital Financial Core System:
+        dark‑theme operational console, courthouse‑theme legal packet, badge‑based
+        governance, audit trail, and authority automation.
+      </p>
+    </section>
+
+    <section>
+      <h2>Operational Console (Dark Theme)</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="tag">Core</span>
+          <h3>Dashboard</h3>
+          <p>High‑level financial overview and entry point into the governance console.</p>
+          <a href="dashboard.html">Open dashboard.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Ledger</span>
+          <h3>Loan Ledger</h3>
+          <p>JSON‑backed ledger view, rendering entries from <code>data/ledger.json</code>.</p>
+          <a href="loan-ledger.html">Open loan-ledger.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Authority</span>
+          <h3>Credit Authority Console</h3>
+          <p>Badge‑gated actions and workflows for executing credit and forgiveness logic.</p>
+          <a href="credit-authority.html">Open credit-authority.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Badges</span>
+          <h3>Badge Console</h3>
+          <p>Badge wall and authority visualization for Founder, Reviewer, Governance, Compliance, and Contributor.</p>
+          <a href="badges.html">Open badges.html</a>
+          <a href="badge-wall.md">View badge-wall.md</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Audit</span>
+          <h3>Audit Trail Viewer</h3>
+          <p>Timeline of actions, suitable for reviewer and internal audit inspection.</p>
+          <a href="audit-trail.html">Open audit-trail.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Vault</span>
+          <h3>Document Vault</h3>
+          <p>Index of all legal documents and their dockets, aligned with the legal packet.</p>
+          <a href="document-vault.html">Open document-vault.html</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Courthouse Legal Packet (Parchment Theme)</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="tag">Note</span>
+          <h3>Promissory Note</h3>
+          <p>Core loan instrument with watermark, initials, signatures, and PDF export hook.</p>
+          <a href="promissory-note.html">Open promissory-note.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">KYC</span>
+          <h3>KYC Intake</h3>
+          <p>Identity verification intake with reviewer stamp and courthouse formatting.</p>
+          <a href="kyc.html">Open kyc.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Collateral</span>
+          <h3>Collateral Statement</h3>
+          <p>Collateral description, lien logic, and encrypted attachment references.</p>
+          <a href="collateral.html">Open collateral.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Addendum</span>
+          <h3>Loan Forgiveness Addendum</h3>
+          <p>Formal addendum for forgiveness events, synchronized with ledger and workflows.</p>
+          <a href="forgiveness-addendum.html">Open forgiveness-addendum.html</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Reporting</span>
+          <h3>Credit Reporting Statement</h3>
+          <p>Defines how loan and forgiveness events are reported to credit bureaus.</p>
+          <a href="credit-reporting.html">Open credit-reporting.html</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Governance & Automation Layer</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="tag">Schema</span>
+          <h3>Governance Schema</h3>
+          <p>Machine‑readable authority model for modules and badges.</p>
+          <a href="governance.json">View governance.json</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Workflows</span>
+          <h3>Credit Workflows</h3>
+          <p>Declarative credit authority workflows for forgiveness and related actions.</p>
+          <a href="credit-workflows.json">View credit-workflows.json</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Collateral</span>
+          <h3>Encrypted Collateral Attachments</h3>
+          <p>Metadata for encrypted collateral files, surfaced in the Collateral Statement.</p>
+          <a href="collateral-attachments.json">View collateral-attachments.json</a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Engine</span>
+          <h3>Authority & Audit Logic</h3>
+          <p>Authority engine, audit logging, legal sync, badge hooks, and signature capture.</p>
+          <a href="authority-engine.js">authority-engine.js</a>
+          <a href="audit-engine.js">audit-engine.js</a>
+          <a href="legal-sync.js">legal-sync.js</a>
+          <a href="signature.js">signature.js</a>
+          <a href="badge-engine.js">badge-engine.js</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Repository & Contribution</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="tag">Repo</span>
+          <h3>GitHub Repository</h3>
+          <p>Canonical source for the GitDigital Financial Core System.</p>
+          <a href="https://github.com/Gitdigital-products/GitDigital-Financial-Core-System">
+            Open repository
+          </a>
+        </div>
+
+        <div class="card">
+          <span class="tag">Contrib</span>
+          <h3>Contributing & Governance</h3>
+          <p>Contributor rules, badge‑based permissions, and governance expectations.</p>
+          <a href="CONTRIBUTING.md">View CONTRIBUTING.md</a>
+          <a href="README.md">View README.md</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    GitDigital Financial Core System · GitDigital LLC · This index connects all operational, legal, and governance modules.
+  </footer>
+</body>
+</html>
+
 I've completed the comprehensive GitDigital Financial Core system. Here's what has been built:
 
 Project Structure
