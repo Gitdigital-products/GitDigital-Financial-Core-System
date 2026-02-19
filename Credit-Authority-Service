@@ -1,0 +1,267 @@
+Request:
+
+
+# Credit Authority Service
+credit_authority_package = """{
+  "name": "@gitdigital/credit-authority",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@gitdigital/shared-types": "*",
+    "@gitdigital/event-bus": "*",
+    "@solana/web3.js": "^1.87.6",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.0"
+  }
+}"""
+
+with open(f"{base_dir}/services/credit-authority/package.json", "w") as f:
+    f.write(credit_authority_package)
+
+credit_authority_index = '''import 'reflect-metadata';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import { EventBus, EventTopics } from '@gitdigital/event-bus';
+import {
+  CreditScore,
+  CreditHistory,
+  CreditFactor,
+  RiskLevel,
+  SystemEvent,
+} from '@gitdigital/shared-types';
+
+dotenv.config();
+
+const app = express();
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// Solana connection
+const solanaConnection = new Connection(
+  process.env.SOLANA_RPC || clusterApiUrl('devnet'),
+  'confirmed'
+);
+
+// Event Bus
+const eventBus = new EventBus({
+  kafkaBrokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  clientId: 'credit-authority',
+});
+
+// Credit score storage
+const creditScores = new Map<string, CreditScore>();
+
+// Initialize
+async function initialize() {
+  await eventBus.connect();
+  
+  await eventBus.subscribe(
+    EventTopics.CREDIT_CHECK_REQUESTED,
+    'credit-authority-group',
+    handleCreditCheckRequest
+  );
+  
+  console.log('Credit Authority: Initialized');
+}
+
+async function handleCreditCheckRequest(event: SystemEvent): Promise<void> {
+  const { loanId, wallet } = event.payload;
+  
+  try {
+    console.log(`Credit Authority: Checking credit for wallet ${wallet}`);
+    
+    // Calculate credit score based on on-chain data
+    const creditData = await calculateCreditScore(wallet);
+    
+    // Determine risk level
+    const riskLevel = determineRiskLevel(creditData.score);
+    
+    // Publish result
+    await eventBus.publish(EventTopics.CREDIT_CHECK_COMPLETED, {
+      loanId,
+      wallet,
+      creditScore: creditData.score,
+      riskLevel,
+      factors: creditData.factors,
+      history: creditData.history,
+    });
+    
+    // Store credit score
+    creditScores.set(wallet, {
+      wallet,
+      score: creditData.score,
+      history: creditData.history,
+      factors: creditData.factors,
+      lastUpdated: new Date(),
+      provider: 'richards-credit-authority',
+    });
+    
+  } catch (error) {
+    console.error('Credit Authority: Error checking credit:', error);
+    await eventBus.publish(EventTopics.SYSTEM_ERROR, {
+      service: 'credit-authority',
+      error: error.message,
+      loanId,
+    });
+  }
+}
+
+async function calculateCreditScore(wallet: string): Promise<{
+  score: number;
+  factors: CreditFactor[];
+  history: CreditHistory[];
+}> {
+  const publicKey = new PublicKey(wallet);
+  
+  // Get account info
+  const accountInfo = await solanaConnection.getAccountInfo(publicKey);
+  const balance = await solanaConnection.getBalance(publicKey);
+  
+  // Get transaction history (last 100 signatures)
+  const signatures = await solanaConnection.getSignaturesForAddress(
+    publicKey,
+    { limit: 100 }
+  );
+  
+  // Calculate factors
+  const factors: CreditFactor[] = [];
+  let score = 500; // Base score
+  
+  // Factor 1: Account age
+  const accountAge = accountInfo ? Date.now() - (accountInfo.rentEpoch * 432000 * 1000) : 0;
+  const ageInDays = accountAge / (1000 * 60 * 60 * 24);
+  const ageScore = Math.min(ageInDays / 365 * 100, 150);
+  score += ageScore;
+  factors.push({
+    name: 'Account Age',
+    weight: 0.15,
+    value: ageScore,
+    description: `Account age: ${Math.floor(ageInDays)} days`,
+  });
+  
+  // Factor 2: Balance
+  const balanceInSol = balance / 1e9;
+  const balanceScore = Math.min(balanceInSol * 10, 100);
+  score += balanceScore;
+  factors.push({
+    name: 'Current Balance',
+    weight: 0.20,
+    value: balanceScore,
+    description: `Balance: ${balanceInSol.toFixed(2)} SOL`,
+  });
+  
+  // Factor 3: Transaction history
+  const txScore = Math.min(signatures.length, 50) * 2;
+  score += txScore;
+  factors.push({
+    name: 'Transaction History',
+    weight: 0.25,
+    value: txScore,
+    description: `${signatures.length} transactions`,
+  });
+  
+  // Factor 4: Activity consistency
+  const uniqueDays = new Set(
+    signatures.map(sig => new Date(sig.blockTime! * 1000).toDateString())
+  ).size;
+  const consistencyScore = Math.min(uniqueDays / 30 * 50, 100);
+  score += consistencyScore;
+  factors.push({
+    name: 'Activity Consistency',
+    weight: 0.20,
+    value: consistencyScore,
+    description: `Active on ${uniqueDays} unique days`,
+  });
+  
+  // Factor 5: No defaults (simulated)
+  const defaultScore = 50; // Assume no defaults for new wallets
+  score += defaultScore;
+  factors.push({
+    name: 'Repayment History',
+    weight: 0.20,
+    value: defaultScore,
+    description: 'No defaults recorded',
+  });
+  
+  // Normalize score to 300-850 range
+  score = Math.max(300, Math.min(850, score));
+  
+  // Build history
+  const history: CreditHistory[] = signatures.slice(0, 10).map(sig => ({
+    date: new Date(sig.blockTime! * 1000),
+    event: sig.err ? 'Failed Transaction' : 'Successful Transaction',
+    impact: sig.err ? -5 : 1,
+    txSignature: sig.signature,
+  }));
+  
+  return { score: Math.round(score), factors, history };
+}
+
+function determineRiskLevel(score: number): RiskLevel {
+  if (score >= 750) return RiskLevel.LOW;
+  if (score >= 650) return RiskLevel.MEDIUM;
+  if (score >= 500) return RiskLevel.HIGH;
+  return RiskLevel.CRITICAL;
+}
+
+// API Routes
+app.get('/api/credit/:wallet', async (req, res) => {
+  const { wallet } = req.params;
+  
+  try {
+    const creditData = await calculateCreditScore(wallet);
+    res.json({
+      success: true,
+      data: {
+        wallet,
+        ...creditData,
+        riskLevel: determineRiskLevel(creditData.score),
+        lastUpdated: new Date(),
+        provider: 'richards-credit-authority',
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/credit', async (req, res) => {
+  const scores = Array.from(creditScores.values());
+  res.json({ success: true, data: scores });
+});
+
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`Credit Authority running on port ${PORT}`);
+  initialize().catch(console.error);
+});
+'''
+
+with open(f"{base_dir}/services/credit-authority/src/index.ts", "w") as f:
+    f.write(credit_authority_index)
+
+print("Credit Authority service created")
+
+Response:
+
+Credit Authority service created
