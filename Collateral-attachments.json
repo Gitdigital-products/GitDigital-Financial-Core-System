@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "collateral_files": [
+    {
+      "id": "cl-001",
+      "docket": "GD-CL-001",
+      "filename": "vehicle-title.pdf",
+      "encryption": "AES-256-GCM",
+      "storage_ref": "vault://collateral/cl-001",
+      "uploaded_by": "R. Kindler",
+      "uploaded_at": "2026-02-18T21:45:00Z"
+    }
+  ]
+}
