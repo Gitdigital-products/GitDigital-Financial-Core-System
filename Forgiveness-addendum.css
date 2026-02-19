@@ -1,0 +1,68 @@
+body {
+  margin: 0;
+  background: #f7f3e8;
+  color: #333;
+  font-family: Arial, sans-serif;
+  display: flex;
+}
+
+.sidebar {
+  width: 240px;
+  background: #f0eadc;
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid #d6cdb8;
+}
+
+.sidebar nav a {
+  display: block;
+  padding: 8px 0;
+  color: #444;
+  text-decoration: none;
+}
+
+.sidebar nav a.active {
+  font-weight: bold;
+  color: #000;
+}
+
+main {
+  margin-left: 260px;
+  padding: 40px;
+}
+
+.doc-header h1 {
+  font-family: Georgia, serif;
+  font-size: 28px;
+}
+
+.docket {
+  font-style: italic;
+  color: #555;
+}
+
+.doc-section {
+  margin-top: 32px;
+}
+
+.doc-section h2 {
+  font-family: Georgia, serif;
+  font-size: 20px;
+}
+
+.initial-box {
+  border: 1px solid #aaa;
+  padding: 8px;
+  width: 200px;
+  margin-top: 10px;
+}
+
+.signature-block {
+  margin-top: 20px;
+}
+
+.reviewer-stamp {
+  margin-top: 50px;
+  font-size: 14px;
+  color: #555;
+}
