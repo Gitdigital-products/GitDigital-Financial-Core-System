@@ -1,0 +1,58 @@
+body {
+  margin: 0;
+  background: #0f1115;
+  color: #e6e6e6;
+  font-family: Arial, sans-serif;
+  display: flex;
+}
+
+.sidebar {
+  width: 240px;
+  background: #111318;
+  color: #fff;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  padding: 20px;
+}
+
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  color: #bfc3c9;
+  text-decoration: none;
+}
+
+.sidebar nav a .icon {
+  margin-right: 8px;
+  color: #2ee6c8;
+}
+
+.sidebar nav a.active {
+  color: #2ee6c8;
+  font-weight: bold;
+}
+
+main {
+  margin-left: 260px;
+  padding: 30px;
+}
+
+.vault-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.vault-card {
+  background: #1a1d22;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.vault-card h2 {
+  margin-top: 0;
+  color: #2ee6c8;
+}
