@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "workflows": [
+    {
+      "id": "wf-forgiveness-basic",
+      "name": "Basic Forgiveness",
+      "module": "credit_authority",
+      "actions": [
+        "validate_kyc",
+        "validate_ledger_state",
+        "apply_forgiveness_entry",
+        "sync_promissory_note",
+        "log_audit"
+      ]
+    }
+  ]
+}
