@@ -1,0 +1,282 @@
+Request:
+
+
+# Compliance Guard Service
+compliance_package = """{
+  "name": "@gitdigital/compliance-guard",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@gitdigital/shared-types": "*",
+    "@gitdigital/event-bus": "*",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.0"
+  }
+}"""
+
+with open(f"{base_dir}/services/compliance-guard/package.json", "w") as f:
+    f.write(compliance_package)
+
+compliance_index = '''import 'reflect-metadata';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import { EventBus, EventTopics } from '@gitdigital/event-bus';
+import {
+  ComplianceCheck,
+  ComplianceCheckType,
+  ComplianceCheckStatus,
+  ComplianceResult,
+  ComplianceFlag,
+  ComplianceStatus,
+  SystemEvent,
+} from '@gitdigital/shared-types';
+
+dotenv.config();
+
+const app = express();
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// Event Bus
+const eventBus = new EventBus({
+  kafkaBrokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  clientId: 'compliance-guard',
+});
+
+// Compliance storage
+const complianceChecks = new Map<string, ComplianceCheck>();
+const sanctionedWallets = new Set<string>([
+  'SANCTIONED_WALLET_1',
+  'SANCTIONED_WALLET_2',
+]);
+
+// Initialize
+async function initialize() {
+  await eventBus.connect();
+  
+  await eventBus.subscribe(
+    EventTopics.COMPLIANCE_CHECK_REQUESTED,
+    'compliance-guard-group',
+    handleComplianceCheckRequest
+  );
+  
+  console.log('Compliance Guard: Initialized');
+}
+
+async function handleComplianceCheckRequest(event: SystemEvent): Promise<void> {
+  const { loanId, wallet, amount } = event.payload;
+  
+  console.log(`Compliance Guard: Checking compliance for wallet ${wallet}`);
+  
+  const flags: ComplianceFlag[] = [];
+  let riskScore = 0;
+  let verified = true;
+  
+  // Check 1: Sanctions screening
+  const sanctionsCheck = await checkSanctions(wallet);
+  if (!sanctionsCheck.passed) {
+    flags.push({
+      type: 'SANCTIONS',
+      severity: 'CRITICAL',
+      description: 'Wallet matches sanctions list',
+      timestamp: new Date(),
+    });
+    riskScore += 100;
+    verified = false;
+  }
+  
+  // Check 2: AML screening
+  const amlCheck = await checkAML(wallet, amount);
+  if (!amlCheck.passed) {
+    flags.push({
+      type: 'AML',
+      severity: 'HIGH',
+      description: 'Suspicious transaction patterns detected',
+      timestamp: new Date(),
+    });
+    riskScore += 50;
+    verified = false;
+  }
+  
+  // Check 3: KYC verification (simulated)
+  const kycCheck = await checkKYC(wallet);
+  if (!kycCheck.verified) {
+    flags.push({
+      type: 'KYC',
+      severity: 'MEDIUM',
+      description: 'KYC verification required',
+      timestamp: new Date(),
+    });
+    riskScore += 30;
+  }
+  
+  // Check 4: Transaction limits
+  if (amount > 100000) {
+    flags.push({
+      type: 'LARGE_TRANSACTION',
+      severity: 'MEDIUM',
+      description: 'Transaction exceeds reporting threshold',
+      timestamp: new Date(),
+    });
+    riskScore += 20;
+  }
+  
+  const result: ComplianceResult = {
+    riskScore,
+    flags,
+    verified,
+    metadata: {
+      checkedAt: new Date().toISOString(),
+      provider: 'solana-compliance-guard',
+      wallet,
+      amount,
+    },
+  };
+  
+  // Determine status
+  let status: ComplianceStatus;
+  if (riskScore >= 80) {
+    status = ComplianceStatus.REJECTED;
+  } else if (riskScore >= 40) {
+    status = ComplianceStatus.FLAGGED;
+  } else if (!verified) {
+    status = ComplianceStatus.KYC_REQUIRED;
+  } else {
+    status = ComplianceStatus.APPROVED;
+  }
+  
+  const check: ComplianceCheck = {
+    id: `comp_${Date.now()}`,
+    wallet,
+    type: ComplianceCheckType.KYC,
+    status: mapToCheckStatus(status),
+    results: result,
+    checkedAt: new Date(),
+    provider: 'solana-compliance-guard',
+  };
+  
+  complianceChecks.set(check.id, check);
+  
+  await eventBus.publish(EventTopics.COMPLIANCE_CHECK_COMPLETED, {
+    loanId,
+    wallet,
+    status,
+    flags,
+    riskScore,
+  });
+  
+  if (flags.length > 0) {
+    await eventBus.publish(EventTopics.COMPLIANCE_FLAG_RAISED, {
+      loanId,
+      wallet,
+      flags,
+    });
+  }
+  
+  console.log(`Compliance Guard: Check completed for ${wallet} with status ${status}`);
+}
+
+async function checkSanctions(wallet: string): Promise<{ passed: boolean }> {
+  // Simulate sanctions check
+  return { passed: !sanctionedWallets.has(wallet) };
+}
+
+async function checkAML(wallet: string, amount: number): Promise<{ passed: boolean }> {
+  // Simulate AML check - flag large or round amounts
+  const isRoundAmount = amount % 1000 === 0 && amount > 10000;
+  return { passed: !isRoundAmount };
+}
+
+async function checkKYC(wallet: string): Promise<{ verified: boolean }> {
+  // Simulate KYC check - 80% of wallets are pre-verified in this demo
+  return { verified: Math.random() > 0.2 };
+}
+
+function mapToCheckStatus(status: ComplianceStatus): ComplianceCheckStatus {
+  switch (status) {
+    case ComplianceStatus.APPROVED:
+      return ComplianceCheckStatus.PASSED;
+    case ComplianceStatus.REJECTED:
+      return ComplianceCheckStatus.FAILED;
+    case ComplianceStatus.FLAGGED:
+      return ComplianceCheckStatus.MANUAL_REVIEW;
+    default:
+      return ComplianceCheckStatus.PENDING;
+  }
+}
+
+// API Routes
+app.get('/api/compliance/:wallet', async (req, res) => {
+  const { wallet } = req.params;
+  const checks = Array.from(complianceChecks.values()).filter(
+    c => c.wallet === wallet
+  );
+  res.json({ success: true, data: checks });
+});
+
+app.get('/api/compliance', async (req, res) => {
+  const checks = Array.from(complianceChecks.values());
+  res.json({ success: true, data: checks });
+});
+
+app.post('/api/compliance/screen', async (req, res) => {
+  const { wallet, amount } = req.body;
+  
+  const flags: ComplianceFlag[] = [];
+  let riskScore = 0;
+  
+  if (sanctionedWallets.has(wallet)) {
+    flags.push({
+      type: 'SANCTIONS',
+      severity: 'CRITICAL',
+      description: 'Wallet matches sanctions list',
+      timestamp: new Date(),
+    });
+    riskScore = 100;
+  }
+  
+  res.json({
+    success: true,
+    data: {
+      wallet,
+      riskScore,
+      flags,
+      passed: riskScore < 50,
+    },
+  });
+});
+
+const PORT = process.env.PORT || 3003;
+app.listen(PORT, () => {
+  console.log(`Compliance Guard running on port ${PORT}`);
+  initialize().catch(console.error);
+});
+'''
+
+with open(f"{base_dir}/services/compliance-guard/src/index.ts", "w") as f:
+    f.write(compliance_index)
+
+print("Compliance Guard service created")
+
+Response:
+
+Compliance Guard service created
