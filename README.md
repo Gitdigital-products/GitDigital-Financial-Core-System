@@ -172,3 +172,8 @@ The system now includes a unified authority engine (`authority-engine.js`) that 
 - `badge-engine.js` — Future GitDigital Badge Authority integration
 ---
 
+### Encrypted Collateral Attachments
+Collateral documents are modeled via `collateral-attachments.json` and surfaced in `collateral.html`. Actual files are assumed to be stored in an encrypted vault and referenced by `storage_ref`.
+
+### Credit Authority Workflows
+Credit actions are defined declaratively in `credit-workflows.json` and executed via `credit-workflows.js`, enabling auditable, badge-gated automation.
