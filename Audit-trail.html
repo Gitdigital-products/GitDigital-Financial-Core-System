@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Audit Trail Viewer</title>
+  <link rel="stylesheet" href="audit-trail.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">GitDigital LLC</div>
+    <nav>
+      <a href="dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+      <a href="loan-ledger.html"><span class="icon">📘</span> Loan Ledger</a>
+      <a href="credit-authority.html"><span class="icon">⚖️</span> Credit Authority</a>
+      <a href="badges.html"><span class="icon">🏅</span> Badges</a>
+      <a href="promissory-note.html">Promissory Note</a>
+      <a href="kyc.html">KYC Intake</a>
+      <a href="collateral.html">Collateral</a>
+      <a href="forgiveness-addendum.html">Forgiveness Addendum</a>
+      <a href="credit-reporting.html">Credit Reporting</a>
+      <a class="active" href="audit-trail.html"><span class="icon">📜</span> Audit Trail</a>
+      <a href="document-vault.html"><span class="icon">📂</span> Document Vault</a>
+    </nav>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <h1>Audit Trail Viewer</h1>
+    </header>
+
+    <section class="filters">
+      <h2>Filters</h2>
+      <div class="filter-row">
+        <span>Date Range: ____________________</span>
+        <span>Actor: ____________________</span>
+        <span>Module: ____________________</span>
+      </div>
+    </section>
+
+    <section class="audit-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Actor</th>
+            <th>Module</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2026‑02‑18 21:30 MST</td>
+            <td>R. Kindler</td>
+            <td>Credit Authority</td>
+            <td>Executed forgiveness on GD‑PN‑001</td>
+          </tr>
+          <tr>
+            <td>2026‑02‑18 21:10 MST</td>
+            <td>System</td>
+            <td>Loan Ledger</td>
+            <td>Created principal entry for GD‑PN‑001</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
