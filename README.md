@@ -160,5 +160,15 @@ It is the canonical implementation of the GitDigital financial governance model.
 
 This system is proprietary to GitDigital LLC and may not be reproduced, modified, or redistributed without written authorization.
 
+
+## Authority Automation Layer
+The system now includes a unified authority engine (`authority-engine.js`) that enforces badge-based permissions across all modules. All actions are validated, logged, and synchronized with legal documents and the audit trail.
+
+### Components
+- `authority-engine.js` — Badge-based permission enforcement  
+- `signature.js` — Reviewer signature capture  
+- `audit-engine.js` — Audit trail injection  
+- `legal-sync.js` — Legal packet synchronization  
+- `badge-engine.js` — Future GitDigital Badge Authority integration
 ---
 
