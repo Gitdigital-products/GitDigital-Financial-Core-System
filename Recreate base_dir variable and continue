@@ -1,0 +1,251 @@
+Request:
+
+
+# Recreate base_dir variable and continue
+base_dir = "/mnt/kimi/output/gitdigital-financial-core"
+
+# Infrastructure Agent Service
+infra_package = """{
+  "name": "@gitdigital/infrastructure",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@gitdigital/shared-types": "*",
+    "@gitdigital/event-bus": "*",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "dockerode": "^4.0.0",
+    "node-ssh": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.0"
+  }
+}"""
+
+with open(f"{base_dir}/services/infrastructure/package.json", "w") as f:
+    f.write(infra_package)
+
+infra_index = '''import 'reflect-metadata';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import { EventBus, EventTopics } from '@gitdigital/event-bus';
+import {
+  InfrastructureDeployment,
+  DeploymentStatus,
+  HealthStatus,
+  SystemEvent,
+} from '@gitdigital/shared-types';
+
+dotenv.config();
+
+const app = express();
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// Event Bus
+const eventBus = new EventBus({
+  kafkaBrokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  clientId: 'infrastructure-agent',
+});
+
+// Deployments storage
+const deployments = new Map<string, InfrastructureDeployment>();
+const serviceHealth = new Map<string, HealthStatus>();
+
+// Initialize
+async function initialize() {
+  await eventBus.connect();
+  
+  await eventBus.subscribe(
+    EventTopics.DEPLOYMENT_REQUESTED,
+    'infrastructure-group',
+    handleDeploymentRequest
+  );
+  
+  // Start health check loop
+  setInterval(checkSystemHealth, 30000);
+  
+  console.log('Infrastructure Agent: Initialized');
+}
+
+async function handleDeploymentRequest(event: SystemEvent): Promise<void> {
+  const { service, environment, version, config } = event.payload;
+  
+  console.log(`Infrastructure: Deploying ${service} v${version} to ${environment}`);
+  
+  const deployment: InfrastructureDeployment = {
+    id: `deploy_${Date.now()}`,
+    service,
+    environment,
+    version,
+    config,
+    status: DeploymentStatus.IN_PROGRESS,
+    healthCheck: HealthStatus.UNKNOWN,
+  };
+  
+  deployments.set(deployment.id, deployment);
+  
+  try {
+    // Simulate deployment process
+    await simulateDeployment(deployment);
+    
+    deployment.status = DeploymentStatus.SUCCESS;
+    deployment.deployedAt = new Date();
+    deployment.healthCheck = HealthStatus.HEALTHY;
+    
+    await eventBus.publish(EventTopics.DEPLOYMENT_COMPLETED, {
+      deploymentId: deployment.id,
+      service,
+      environment,
+      version,
+      status: 'SUCCESS',
+      timestamp: new Date(),
+    });
+    
+    console.log(`Infrastructure: Deployment ${deployment.id} completed successfully`);
+  } catch (error) {
+    deployment.status = DeploymentStatus.FAILED;
+    deployment.healthCheck = HealthStatus.UNHEALTHY;
+    
+    await eventBus.publish(EventTopics.SYSTEM_ERROR, {
+      service: 'infrastructure',
+      error: error.message,
+      deploymentId: deployment.id,
+    });
+    
+    console.error(`Infrastructure: Deployment ${deployment.id} failed:`, error);
+  }
+}
+
+async function simulateDeployment(deployment: InfrastructureDeployment): Promise<void> {
+  // Simulate deployment steps
+  console.log(`Infrastructure: Building ${deployment.service}...`);
+  await sleep(2000);
+  
+  console.log(`Infrastructure: Running tests...`);
+  await sleep(1500);
+  
+  console.log(`Infrastructure: Deploying to ${deployment.environment}...`);
+  await sleep(3000);
+  
+  console.log(`Infrastructure: Verifying deployment...`);
+  await sleep(1000);
+}
+
+async function checkSystemHealth(): Promise<void> {
+  const services = [
+    { name: 'loan-engine', port: 3001 },
+    { name: 'credit-authority', port: 3002 },
+    { name: 'compliance-guard', port: 3003 },
+    { name: 'ai-gateway', port: 3004 },
+    { name: 'tax-service', port: 3005 },
+  ];
+  
+  for (const service of services) {
+    try {
+      const response = await fetch(`http://localhost:${service.port}/health`);
+      const status = response.ok ? HealthStatus.HEALTHY : HealthStatus.DEGRADED;
+      serviceHealth.set(service.name, status);
+      
+      if (status !== HealthStatus.HEALTHY) {
+        await eventBus.publish(EventTopics.HEALTH_CHECK_FAILED, {
+          service: service.name,
+          status,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      serviceHealth.set(service.name, HealthStatus.UNHEALTHY);
+      await eventBus.publish(EventTopics.HEALTH_CHECK_FAILED, {
+        service: service.name,
+        status: HealthStatus.UNHEALTHY,
+        error: error.message,
+        timestamp: new Date(),
+      });
+    }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// API Routes
+app.get('/api/infra/deployments', async (req, res) => {
+  const deployList = Array.from(deployments.values());
+  res.json({ success: true, data: deployList });
+});
+
+app.post('/api/infra/deploy', async (req, res) => {
+  const { service, environment, version, config } = req.body;
+  
+  await eventBus.publish(EventTopics.DEPLOYMENT_REQUESTED, {
+    service,
+    environment,
+    version,
+    config,
+  });
+  
+  res.json({
+    success: true,
+    message: 'Deployment initiated',
+    data: { service, environment, version },
+  });
+});
+
+app.get('/api/infra/health', async (req, res) => {
+  const health = Array.from(serviceHealth.entries()).map(([service, status]) => ({
+    service,
+    status,
+    lastChecked: new Date(),
+  }));
+  
+  res.json({ success: true, data: health });
+});
+
+app.get('/api/infra/services/:service/logs', async (req, res) => {
+  const { service } = req.params;
+  // Simulate log retrieval
+  const logs = [
+    `[${new Date().toISOString()}] ${service} - Service started`,
+    `[${new Date().toISOString()}] ${service} - Connected to event bus`,
+    `[${new Date().toISOString()}] ${service} - Health check passed`,
+  ];
+  
+  res.json({ success: true, data: logs });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', service: 'infrastructure' });
+});
+
+const PORT = process.env.PORT || 3006;
+app.listen(PORT, () => {
+  console.log(`Infrastructure Agent running on port ${PORT}`);
+  initialize().catch(console.error);
+});
+'''
+
+with open(f"{base_dir}/services/infrastructure/src/index.ts", "w") as f:
+    f.write(infra_index)
+
+print("Infrastructure Agent service created")
+
+Response:
+
+Infrastructure Agent service created
