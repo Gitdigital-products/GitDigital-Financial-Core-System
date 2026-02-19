@@ -1,0 +1,314 @@
+Request:
+
+
+# Tax Service
+tax_package = """{
+  "name": "@gitdigital/tax-service",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@gitdigital/shared-types": "*",
+    "@gitdigital/event-bus": "*",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "pdfkit": "^0.14.0",
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.0",
+    "@types/pdfkit": "^0.13.3",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.0"
+  }
+}"""
+
+with open(f"{base_dir}/services/tax-service/package.json", "w") as f:
+    f.write(tax_package)
+
+tax_index = '''import 'reflect-metadata';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import PDFDocument from 'pdfkit';
+import { format } from 'date-fns';
+import { EventBus, EventTopics } from '@gitdigital/event-bus';
+import {
+  TaxEvent,
+  TaxEventType,
+  SystemEvent,
+} from '@gitdigital/shared-types';
+
+dotenv.config();
+
+const app = express();
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// Event Bus
+const eventBus = new EventBus({
+  kafkaBrokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  clientId: 'tax-service',
+});
+
+// Tax events storage
+const taxEvents = new Map<string, TaxEvent[]>();
+
+// Initialize
+async function initialize() {
+  await eventBus.connect();
+  
+  await eventBus.subscribe(
+    EventTopics.LOAN_FUNDED,
+    'tax-service-funded',
+    handleLoanFunded
+  );
+  
+  await eventBus.subscribe(
+    EventTopics.LOAN_REPAID,
+    'tax-service-repaid',
+    handleLoanRepaid
+  );
+  
+  await eventBus.subscribe(
+    EventTopics.LOAN_LIQUIDATED,
+    'tax-service-liquidated',
+    handleLoanLiquidated
+  );
+  
+  console.log('Tax Service: Initialized');
+}
+
+async function handleLoanFunded(event: SystemEvent): Promise<void> {
+  const { loanId, amount, applicant } = event.payload;
+  
+  // Record interest income event (for lender)
+  const interestEvent: TaxEvent = {
+    id: `tax_${Date.now()}_interest`,
+    loanId,
+    type: TaxEventType.INTEREST_INCOME,
+    amount: amount * 0.05, // 5% interest
+    currency: 'USDC',
+    timestamp: new Date(),
+    jurisdiction: 'US',
+    txSignature: '',
+    metadata: {
+      wallet: applicant,
+      description: 'Projected interest income',
+    },
+  };
+  
+  await recordTaxEvent(interestEvent);
+  
+  // Record fee event
+  const feeEvent: TaxEvent = {
+    id: `tax_${Date.now()}_fee`,
+    loanId,
+    type: TaxEventType.FEE,
+    amount: amount * 0.01, // 1% fee
+    currency: 'USDC',
+    timestamp: new Date(),
+    jurisdiction: 'US',
+    txSignature: '',
+    metadata: {
+      wallet: applicant,
+      description: 'Platform fee',
+    },
+  };
+  
+  await recordTaxEvent(feeEvent);
+  console.log(`Tax Service: Recorded tax events for funded loan ${loanId}`);
+}
+
+async function handleLoanRepaid(event: SystemEvent): Promise<void> {
+  const { loanId, amount, interestPaid } = event.payload;
+  
+  const event: TaxEvent = {
+    id: `tax_${Date.now()}_repaid`,
+    loanId,
+    type: TaxEventType.INTEREST_EXPENSE,
+    amount: interestPaid || amount * 0.05,
+    currency: 'USDC',
+    timestamp: new Date(),
+    jurisdiction: 'US',
+    txSignature: '',
+    metadata: {
+      description: 'Interest expense on loan repayment',
+    },
+  };
+  
+  await recordTaxEvent(event);
+  console.log(`Tax Service: Recorded repayment tax event for loan ${loanId}`);
+}
+
+async function handleLoanLiquidated(event: SystemEvent): Promise<void> {
+  const { loanId, collateralAmount, collateralValue } = event.payload;
+  
+  const event: TaxEvent = {
+    id: `tax_${Date.now()}_liquidation`,
+    loanId,
+    type: TaxEventType.LIQUIDATION,
+    amount: collateralValue,
+    currency: 'SOL',
+    timestamp: new Date(),
+    jurisdiction: 'US',
+    txSignature: '',
+    metadata: {
+      collateralAmount,
+      description: 'Collateral liquidation event',
+    },
+  };
+  
+  await recordTaxEvent(event);
+  console.log(`Tax Service: Recorded liquidation event for loan ${loanId}`);
+}
+
+async function recordTaxEvent(event: TaxEvent): Promise<void> {
+  const wallet = event.metadata?.wallet || 'system';
+  if (!taxEvents.has(wallet)) {
+    taxEvents.set(wallet, []);
+  }
+  taxEvents.get(wallet)!.push(event);
+  
+  await eventBus.publish(EventTopics.TAX_EVENT_RECORDED, event);
+}
+
+function generateTaxReportPDF(
+  wallet: string,
+  events: TaxEvent[],
+  year: number
+): Buffer {
+  const doc = new PDFDocument();
+  const chunks: Buffer[] = [];
+  
+  doc.on('data', chunk => chunks.push(chunk));
+  
+  // Header
+  doc.fontSize(20).text('GitDigital Tax Report', 50, 50);
+  doc.fontSize(12).text(`Wallet: ${wallet}`, 50, 80);
+  doc.text(`Tax Year: ${year}`, 50, 100);
+  doc.text(`Generated: ${format(new Date(), 'PPP')}`, 50, 120);
+  
+  // Summary
+  doc.fontSize(16).text('Summary', 50, 160);
+  const summary = events.reduce((acc, event) => {
+    acc[event.type] = (acc[event.type] || 0) + event.amount;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  let y = 190;
+  Object.entries(summary).forEach(([type, amount]) => {
+    doc.fontSize(12).text(`${type}: $${amount.toFixed(2)}`, 50, y);
+    y += 20;
+  });
+  
+  // Details
+  doc.addPage();
+  doc.fontSize(16).text('Transaction Details', 50, 50);
+  
+  y = 80;
+  events.forEach(event => {
+    if (y > 700) {
+      doc.addPage();
+      y = 50;
+    }
+    doc.fontSize(10).text(`${format(event.timestamp, 'PP')}`, 50, y);
+    doc.text(`${event.type}`, 150, y);
+    doc.text(`$${event.amount.toFixed(2)}`, 300, y);
+    doc.text(event.currency, 400, y);
+    y += 30;
+  });
+  
+  doc.end();
+  
+  return Buffer.concat(chunks);
+}
+
+// API Routes
+app.get('/api/tax/:wallet', async (req, res) => {
+  const { wallet } = req.params;
+  const { year = new Date().getFullYear() } = req.query;
+  
+  const events = taxEvents.get(wallet) || [];
+  const yearEvents = events.filter(
+    e => e.timestamp.getFullYear() === parseInt(year as string)
+  );
+  
+  res.json({ success: true, data: yearEvents });
+});
+
+app.get('/api/tax/:wallet/report', async (req, res) => {
+  const { wallet } = req.params;
+  const { year = new Date().getFullYear() } = req.query;
+  
+  const events = taxEvents.get(wallet) || [];
+  const yearEvents = events.filter(
+    e => e.timestamp.getFullYear() === parseInt(year as string)
+  );
+  
+  const pdfBuffer = generateTaxReportPDF(wallet, yearEvents, parseInt(year as string));
+  
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="tax-report-${wallet}-${year}.pdf"`);
+  res.send(pdfBuffer);
+});
+
+app.get('/api/tax/:wallet/summary', async (req, res) => {
+  const { wallet } = req.params;
+  const { year = new Date().getFullYear() } = req.query;
+  
+  const events = taxEvents.get(wallet) || [];
+  const yearEvents = events.filter(
+    e => e.timestamp.getFullYear() === parseInt(year as string)
+  );
+  
+  const summary = yearEvents.reduce((acc, event) => {
+    acc[event.type] = (acc[event.type] || 0) + event.amount;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const totalIncome = (summary[TaxEventType.INTEREST_INCOME] || 0) + 
+                      (summary[TaxEventType.COLLATERAL_GAIN] || 0);
+  const totalExpense = (summary[TaxEventType.INTEREST_EXPENSE] || 0) + 
+                       (summary[TaxEventType.COLLATERAL_LOSS] || 0);
+  
+  res.json({
+    success: true,
+    data: {
+      wallet,
+      year: parseInt(year as string),
+      totalIncome,
+      totalExpense,
+      netTaxable: totalIncome - totalExpense,
+      breakdown: summary,
+      transactionCount: yearEvents.length,
+    },
+  });
+});
+
+const PORT = process.env.PORT || 3005;
+app.listen(PORT, () => {
+  console.log(`Tax Service running on port ${PORT}`);
+  initialize().catch(console.error);
+});
+'''
+
+with open(f"{base_dir}/services/tax-service/src/index.ts", "w") as f:
+    f.write(tax_index)
+
+print("Tax Service created")
+
+Response:
+
+Tax Service created
