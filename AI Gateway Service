@@ -1,0 +1,273 @@
+Request:
+
+
+# AI Gateway Service
+ai_gateway_package = """{
+  "name": "@gitdigital/ai-gateway",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@gitdigital/shared-types": "*",
+    "@gitdigital/event-bus": "*",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2",
+    "openai": "^4.20.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.0"
+  }
+}"""
+
+with open(f"{base_dir}/services/ai-gateway/package.json", "w") as f:
+    f.write(ai_gateway_package)
+
+ai_gateway_index = '''import 'reflect-metadata';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import OpenAI from 'openai';
+import { EventBus, EventTopics } from '@gitdigital/event-bus';
+import {
+  AIInsight,
+  AIInsightType,
+  RiskLevel,
+  SystemEvent,
+} from '@gitdigital/shared-types';
+
+dotenv.config();
+
+const app = express();
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+
+// OpenAI configuration
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || 'demo-key',
+});
+
+// Event Bus
+const eventBus = new EventBus({
+  kafkaBrokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  clientId: 'ai-gateway',
+});
+
+// AI Insights storage
+const insights = new Map<string, AIInsight[]>();
+
+// Initialize
+async function initialize() {
+  await eventBus.connect();
+  
+  await eventBus.subscribe(
+    EventTopics.AI_ANALYSIS_REQUESTED,
+    'ai-gateway-group',
+    handleAnalysisRequest
+  );
+  
+  console.log('AI Gateway: Initialized');
+}
+
+async function handleAnalysisRequest(event: SystemEvent): Promise<void> {
+  const { loanId, creditScore, amount, purpose } = event.payload;
+  
+  console.log(`AI Gateway: Analyzing loan ${loanId}`);
+  
+  try {
+    // Generate multiple AI insights
+    const creditRiskInsight = await analyzeCreditRisk(creditScore, amount, purpose);
+    const fraudInsight = await analyzeFraudRisk(loanId, creditScore);
+    const growthInsight = await analyzeGrowthPotential(purpose, amount);
+    
+    const loanInsights = [creditRiskInsight, fraudInsight, growthInsight];
+    insights.set(loanId, loanInsights);
+    
+    // Aggregate recommendation
+    const avgConfidence = loanInsights.reduce((sum, i) => sum + i.confidence, 0) / loanInsights.length;
+    const recommendations = loanInsights.map(i => i.recommendation);
+    const finalRecommendation = recommendations.filter(r => r === 'APPROVE').length >= 2 ? 'APPROVE' : 'REJECT';
+    
+    await eventBus.publish(EventTopics.AI_INSIGHT_GENERATED, {
+      loanId,
+      insights: loanInsights,
+      recommendation: finalRecommendation,
+      confidence: avgConfidence,
+      timestamp: new Date(),
+    });
+    
+    // Check for high risk alerts
+    if (creditRiskInsight.recommendation === 'REJECT' && creditRiskInsight.confidence > 0.8) {
+      await eventBus.publish(EventTopics.AI_RISK_ALERT, {
+        loanId,
+        type: 'HIGH_CREDIT_RISK',
+        severity: 'HIGH',
+        details: creditRiskInsight.reasoning,
+      });
+    }
+    
+    console.log(`AI Gateway: Analysis completed for loan ${loanId}`);
+  } catch (error) {
+    console.error('AI Gateway: Analysis error:', error);
+    await eventBus.publish(EventTopics.SYSTEM_ERROR, {
+      service: 'ai-gateway',
+      error: error.message,
+      loanId,
+    });
+  }
+}
+
+async function analyzeCreditRisk(
+  creditScore: number,
+  amount: number,
+  purpose: string
+): Promise<AIInsight> {
+  // Simulate AI analysis (replace with actual OpenAI call in production)
+  const riskFactors = [];
+  let riskScore = 0;
+  
+  if (creditScore < 600) {
+    riskFactors.push('Low credit score');
+    riskScore += 30;
+  }
+  if (amount > 50000) {
+    riskFactors.push('High loan amount');
+    riskScore += 20;
+  }
+  if (purpose.toLowerCase().includes('speculation')) {
+    riskFactors.push('Speculative purpose');
+    riskScore += 25;
+  }
+  
+  const recommendation = riskScore < 40 ? 'APPROVE' : 'REJECT';
+  const confidence = 0.7 + Math.random() * 0.2;
+  
+  return {
+    id: `insight_${Date.now()}_credit`,
+    loanId: '',
+    type: AIInsightType.CREDIT_RISK,
+    confidence,
+    recommendation,
+    reasoning: `Credit risk analysis: ${riskFactors.join(', ') || 'No major risk factors'}. Overall risk score: ${riskScore}/100`,
+    metrics: {
+      creditScore,
+      amount,
+      riskScore,
+      debtToIncome: 0.3,
+    },
+    generatedAt: new Date(),
+    modelVersion: 'hustlegpt-v1.0',
+  };
+}
+
+async function analyzeFraudRisk(loanId: string, creditScore: number): Promise<AIInsight> {
+  // Simulate fraud detection
+  const anomalyScore = Math.random();
+  const isSuspicious = anomalyScore > 0.8 || creditScore < 400;
+  
+  return {
+    id: `insight_${Date.now()}_fraud`,
+    loanId: '',
+    type: AIInsightType.FRAUD_DETECTION,
+    confidence: 0.75 + Math.random() * 0.15,
+    recommendation: isSuspicious ? 'REJECT' : 'APPROVE',
+    reasoning: isSuspicious 
+      ? 'Anomalous patterns detected in application data' 
+      : 'No suspicious patterns detected',
+    metrics: {
+      anomalyScore,
+      patternMatch: 0.92,
+      velocityCheck: 0.85,
+    },
+    generatedAt: new Date(),
+    modelVersion: 'growthflow-v1.2',
+  };
+}
+
+async function analyzeGrowthPotential(purpose: string, amount: number): Promise<AIInsight> {
+  // Simulate growth analysis
+  const growthKeywords = ['business', 'expansion', 'investment', 'development'];
+  const hasGrowthPotential = growthKeywords.some(k => purpose.toLowerCase().includes(k));
+  
+  return {
+    id: `insight_${Date.now()}_growth`,
+    loanId: '',
+    type: AIInsightType.GROWTH_POTENTIAL,
+    confidence: 0.8,
+    recommendation: hasGrowthPotential || amount < 10000 ? 'APPROVE' : 'REVIEW',
+    reasoning: hasGrowthPotential 
+      ? 'Purpose indicates positive growth trajectory' 
+      : 'Standard purpose, no exceptional growth indicators',
+    metrics: {
+      growthScore: hasGrowthPotential ? 0.85 : 0.5,
+      marketOpportunity: 0.7,
+      roiProjection: 1.15,
+    },
+    generatedAt: new Date(),
+    modelVersion: 'hustlegpt-v1.0',
+  };
+}
+
+// API Routes
+app.get('/api/ai/insights/:loanId', async (req, res) => {
+  const { loanId } = req.params;
+  const loanInsights = insights.get(loanId) || [];
+  res.json({ success: true, data: loanInsights });
+});
+
+app.post('/api/ai/analyze', async (req, res) => {
+  const { creditScore, amount, purpose } = req.body;
+  
+  try {
+    const creditRisk = await analyzeCreditRisk(creditScore, amount, purpose);
+    const fraud = await analyzeFraudRisk('manual', creditScore);
+    const growth = await analyzeGrowthPotential(purpose, amount);
+    
+    res.json({
+      success: true,
+      data: [creditRisk, fraud, growth],
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/ai/health', async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      status: 'operational',
+      models: ['hustlegpt-v1.0', 'growthflow-v1.2'],
+      queueDepth: 0,
+    },
+  });
+});
+
+const PORT = process.env.PORT || 3004;
+app.listen(PORT, () => {
+  console.log(`AI Gateway running on port ${PORT}`);
+  initialize().catch(console.error);
+});
+'''
+
+with open(f"{base_dir}/services/ai-gateway/src/index.ts", "w") as f:
+    f.write(ai_gateway_index)
+
+print("AI Gateway service created")
+
+Response:
+
+AI Gateway service created
