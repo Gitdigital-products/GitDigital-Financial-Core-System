@@ -1,0 +1,32 @@
+gitdigital-financial-core/
+├── README.md                 # Main documentation
+├── ARCHITECTURE.md          # System architecture diagrams
+├── docker-compose.yml       # Infrastructure orchestration
+├── package.json             # Root monorepo config
+├── turbo.json              # Turborepo pipeline
+├── setup.sh                # Automated setup script
+├── .env.example            # Environment template
+├── .gitignore
+│
+├── packages/               # Shared libraries
+│   ├── shared-types/       # TypeScript definitions
+│   │   └── src/index.ts    # All entity types & enums
+│   └── event-bus/          # Kafka/Redis event system
+│       └── src/index.ts    # Event bus implementation
+│
+├── services/               # Backend microservices
+│   ├── loan-engine/        # Loan workflow management
+│   ├── credit-authority/   # On-chain credit scoring
+│   ├── compliance-guard/   # KYC/AML screening
+│   ├── ai-gateway/         # GPT-4 risk analysis
+│   ├── tax-service/        # Tax reporting & PDFs
+│   └── infrastructure/     # Deployment & monitoring
+│
+├── apps/                   # Frontend applications
+│   └── dashboard-ui/       # Next.js React dashboard
+│       ├── src/app/        # Main pages & layout
+│       └── src/components/ # Wallet provider, etc.
+│
+└── contracts/              # Solana smart contracts
+    └── solana/
+        └── programs/       # Anchor program structure
