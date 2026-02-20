@@ -1,3 +1,23 @@
+# GitDigital Financial Core System
+
+<p align="left">
+  <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" />
+  <img src="https://img.shields.io/github/license/Gitdigital-products/GitDigital-Financial-Core-System?style=for-the-badge&color=orange" />
+  <img src="https://img.shields.io/github/last-commit/Gitdigital-products/GitDigital-Financial-Core-System?style=for-the-badge" />
+  <img src="https://img.shields.io/github/issues/Gitdigital-products/GitDigital-Financial-Core-System?style=for-the-badge&color=red" />
+</p>
+
+---
+
+### 🚀 Tech Stack
+| Component | Technology |
+| :--- | :--- |
+| **Blockchain** | ![Solana](https://img.shields.io/badge/Solana-9945FF?style=flat-square&logo=solana&logoColor=white) |
+| **Smart Contracts** | ![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white) |
+| **Backend** | ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white) |
+| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white) |
+| **DevOps** | ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white) |
+
 # GitDigital-Financial-Core-System
 GitDigital Products Financial Core System Powered By richards credit Authority 
 Richard, perfect — I’ll fold badge walls, GitDigital‑Financial‑Core‑System branGitDigital Financial Core System
